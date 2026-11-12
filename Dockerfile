@@ -1,4 +1,4 @@
-FROM node:18-alpine3.20
+FROM node:24-alpine
 WORKDIR /app
 ARG NPM_REGISTRY=
 ENV NODE_ENV=production \
@@ -15,6 +15,6 @@ RUN mkdir -p /app/data && chown -R node:node /app/data
 VOLUME /app/data
 EXPOSE 2026
 HEALTHCHECK --interval=30s --timeout=5s --start-period=10s --retries=3 \
-  CMD wget -qO- http://localhost:2026/api/status || exit 1
+  CMD wget -qO- http://127.0.0.1:2026/api/status || exit 1
 USER node
 CMD ["node", "server.js"]

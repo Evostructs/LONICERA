@@ -21,8 +21,13 @@ CONTRIBUTING.md
 DEVLOG.md
 README.md
 SECURITY.md
-LICENSE
 __tests__
 docs
 docker-compose.yml
 .dockerignore
+
+e2e
+test-results
+playwright-report
+过程稿
+.github

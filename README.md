@@ -74,17 +74,19 @@ Characters from _Journey to the West_, _Romance of the Three Kingdoms_, _Water M
 
 ```bash
 docker pull ghcr.io/evostructs/lonicera:latest
-docker run -d -p 2026:2026 --restart unless-stopped --name lonicera ghcr.io/evostructs/lonicera:latest
+docker run -d -p 2026:2026 -v lonicera-data:/app/data --restart unless-stopped --name lonicera ghcr.io/evostructs/lonicera:latest
 ```
 
-Open `http://localhost:2026` in your browser. Done.
+Open `http://localhost:2026` in your browser (or `http://YOUR_SERVER_IP:2026` from another device). The image supports Linux AMD64 and ARM64. No GitHub login, API key, or solver dataset is required for the built-in NPCs. Saves persist in the `lonicera-data` volume.
+
+Startup preflop computation runs in the background; on small devices, add `-e PREFLOP_TABLE=off` to skip it. Optional PokerSkill/Codex services are not bundled or enabled.
 
 GitHub Container Registry image names are lowercase even if the repository name uses uppercase letters.
 
 ### Docker Compose From Source
 
 ```bash
-git clone https://github.com/Evostructs/LONICERA.git
+git clone https://github.com/Evostructs/LONICERA.git lonicera
 cd lonicera
 docker compose up -d
 ```
@@ -96,40 +98,31 @@ export NPM_REGISTRY=https://registry.npmmirror.com
 docker compose up -d --build
 ```
 
-For private NAS or home-server deployments where the checkout is only a build copy, the most reliable update flow is to force-align the worktree to `origin/main` before rebuilding:
+To update an existing source checkout, preserve any local changes first, then run:
 
 ```bash
 cd /path/to/lonicera-deploy
-
-sudo docker run --rm \
-  --entrypoint sh \
-  -v "$PWD":/repo \
-  -w /repo \
-  alpine/git \
-  -lc 'git config --global --add safe.directory /repo && \
-       git fetch origin main && \
-       git reset --hard origin/main && \
-       git clean -fd && \
-       git rev-parse --short HEAD'
-
-sudo NPM_REGISTRY=https://registry.npmmirror.com docker compose up -d --build
+git pull --ff-only
+docker compose up -d --build
 ```
 
-This intentionally discards uncommitted changes in the NAS checkout and makes the deploy copy match the remote exactly.
+If Git reports conflicting local changes or a diverged branch, resolve them before rebuilding. The named save volume is retained.
 
 ### Build from Source
 
 ```bash
-git clone https://github.com/Evostructs/LONICERA.git
+git clone https://github.com/Evostructs/LONICERA.git lonicera
 cd lonicera
 docker build -t lonicera .
-docker run -d -p 2026:2026 --restart unless-stopped --name lonicera lonicera
+docker run -d -p 2026:2026 -v lonicera-data:/app/data --restart unless-stopped --name lonicera lonicera
 ```
 
-### Run Locally (Node.js 18+)
+### Run Locally (Node.js 24 LTS)
 
 ```bash
-npm install
+git clone https://github.com/Evostructs/LONICERA.git lonicera
+cd lonicera
+npm ci
 node server.js
 ```
 

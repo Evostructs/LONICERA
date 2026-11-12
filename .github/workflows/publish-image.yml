@@ -10,41 +10,91 @@ permissions:
   contents: read
   packages: write
 
-env:
-  REGISTRY: ghcr.io
-  IMAGE_NAME: evostructs/lonicera
+concurrency:
+  group: lonicera-container-release
+  cancel-in-progress: false
 
 jobs:
-  docker:
-    runs-on: ubuntu-latest
-
+  verify-build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - runner: ubuntu-latest
+            arch: amd64
+          - runner: ubuntu-24.04-arm
+            arch: arm64
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
         with:
-          registry: ${{ env.REGISTRY }}
+          node-version: '24'
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+      - run: npm test -- --runInBand --silent
+      - run: npm audit --omit=dev
+      - run: npx playwright install --with-deps chromium
+      - name: Follow README source Compose installation
+        run: |
+          docker compose -p install-test up -d --build --wait --wait-timeout 180
+          test "$(docker exec lonicera id -u)" = 1000
+          docker exec lonicera test -f /app/LICENSE
+          node scripts/container-smoke.js
+          CONTAINER_URL=http://127.0.0.1:2026 npx playwright test e2e/container-install.spec.js
+      - name: Follow README image installation and check save persistence
+        run: |
+          image=$(docker inspect lonicera --format '{{.Image}}')
+          docker tag "$image" ghcr.io/evostructs/lonicera:sha-${{ github.sha }}-${{ matrix.arch }}
+          docker compose -p install-test down
+          docker run -d -p 2026:2026 -v install-test_lonicera-data:/app/data --restart unless-stopped --name lonicera "$image"
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:2026/api/status; then break; fi
+            sleep 2
+          done
+          node scripts/container-smoke.js --saved-only
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish verified architecture
+        run: docker push ghcr.io/evostructs/lonicera:sha-${{ github.sha }}-${{ matrix.arch }}
+      - name: Failure diagnostics
+        if: failure()
+        run: docker logs --tail 100 lonicera || true
 
-      - name: Extract Docker metadata
-        id: meta
-        uses: docker/metadata-action@v5
+  publish:
+    needs: verify-build
+    runs-on: ubuntu-latest
+    steps:
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
         with:
-          images: ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}
-          tags: |
-            type=ref,event=tag
-            type=raw,value=latest,enable={{is_default_branch}}
-
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v6
-        with:
-          context: .
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Publish multi-platform immutable tag and latest
+        env:
+          REF_TYPE: ${{ github.ref_type }}
+          REF_NAME: ${{ github.ref_name }}
+        run: |
+          tags=(-t ghcr.io/evostructs/lonicera:sha-${{ github.sha }})
+          if [ "$REF_NAME" = main ] || [ "$REF_TYPE" = tag ]; then tags+=(-t ghcr.io/evostructs/lonicera:latest); fi
+          if [ "$REF_TYPE" = tag ]; then tags+=(-t "ghcr.io/evostructs/lonicera:$REF_NAME"); fi
+          docker buildx imagetools create "${tags[@]}" \
+            ghcr.io/evostructs/lonicera:sha-${{ github.sha }}-amd64 \
+            ghcr.io/evostructs/lonicera:sha-${{ github.sha }}-arm64
+      - name: Verify anonymous pull of public image
+        run: |
+          export DOCKER_CONFIG=$(mktemp -d)
+          docker pull ghcr.io/evostructs/lonicera:sha-${{ github.sha }}
+          docker run -d -p 2026:2026 -v lonicera-data:/app/data --restart unless-stopped --name lonicera ghcr.io/evostructs/lonicera:sha-${{ github.sha }}
+          for attempt in $(seq 1 60); do
+            if curl -fsS http://127.0.0.1:2026/api/status; then break; fi
+            sleep 2
+          done
+          curl -fsS http://127.0.0.1:2026/api/status
+          test "$(docker exec lonicera id -u)" = 1000
