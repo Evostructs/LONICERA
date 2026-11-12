@@ -70,6 +70,17 @@ Characters from _Journey to the West_, _Romance of the Three Kingdoms_, _Water M
 
 ## 🚀 Quick Start
 
+### Default NPCs and optional backends
+
+**The default installation uses built-in rule-based NPCs with Monte Carlo simulation.** They run locally without an API key, an external model service, or downloaded solver data. This is the recommended starting point for normal play and home/NAS deployments. `NPC_MODEL_ENABLED` and `POKERSKILL_ENABLED` are both `off` by default.
+
+The integration paths remain available for advanced setups:
+
+- **External Solver data:** generate and mount compatible runtime trees for supported heads-up situations. Building a full dataset can require substantial compute time and storage; runtime play looks up those precomputed trees. Full datasets are not bundled with the image.
+- **External models:** optionally connect a compatible policy service or the PokerSkill/Codex adapters to experiment with more capable models. These need a separately configured service and may add hardware requirements, API/subscription costs, and decision latency. The adapters are optional; a larger model is not, by itself, evidence of stronger poker play.
+
+Start with the built-in NPCs. Enable an external backend only when you have the required data or service, can accommodate its cost and response time, and have checked decision quality and legal-action handling in your own setup. Coverage is limited to supported situations; unsupported or failed backend decisions fall back to the existing decision chain and built-in NPCs.
+
 ### Published Container Image
 
 ```bash
