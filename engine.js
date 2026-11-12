@@ -82,6 +82,7 @@ class PokerGame {
     this.onUpdate = null;
     this.onMessage = null;
     this.npcModelConfig = options.npcModel || null;
+    this.pokerSkillConfig = options.pokerSkill || null;
     this.solverDataDir = options.solverDataDir || null;
     this.solverRootCacheDir = options.solverRootCacheDir || null;
 
@@ -96,6 +97,7 @@ class PokerGame {
     this.runtimeRolloutStats = {
       decisions: 0,
       solverHits: 0,
+      pokerSkillHits: 0,
       modelHits: 0,
       fallbacks: 0,
       coveredFallbacks: 0,
@@ -173,7 +175,7 @@ class PokerGame {
   }
 
   recordRuntimeRolloutDecision(trace, solverTrace = null) {
-    if (!trace || !['solver_hit', 'model_hit', 'fallback'].includes(trace.status)) return;
+    if (!trace || !['solver_hit', 'pokerskill_hit', 'model_hit', 'fallback'].includes(trace.status)) return;
     const stats = this.runtimeRolloutStats;
     stats.decisions += 1;
 
@@ -183,6 +185,8 @@ class PokerGame {
       incrementCounter(stats.solverReasons, trace.reason);
       incrementCounter(stats.solverClassifications, trace.classification);
       incrementCounter(stats.solverTakeoverModes, trace.takeoverMode);
+    } else if (trace.status === 'pokerskill_hit') {
+      stats.pokerSkillHits += 1;
     } else if (trace.status === 'model_hit') {
       stats.modelHits += 1;
     } else if (trace.status === 'fallback') {
@@ -219,6 +223,7 @@ class PokerGame {
       {
         decisions: stats.decisions,
         solverHits: stats.solverHits,
+        pokerSkillHits: stats.pokerSkillHits,
         modelHits: stats.modelHits,
         fallbacks: stats.fallbacks,
         coveredFallbacks: stats.coveredFallbacks,
@@ -1979,6 +1984,7 @@ class PokerGame {
         chips: current.chips,
         minRaise: this.currentBet + this.minRaise,
         phase: this.phase,
+        roundCount: this.roundCount,
         activePlayers: this.getPlayersInHand().length,
         seatIndex: current.seatIndex,
         dealerIndex: this.dealerIndex,
@@ -2023,6 +2029,7 @@ class PokerGame {
           communityCards: this.communityCards,
           gameState,
           players: this.players,
+          pokerSkillConfig: this.pokerSkillConfig || undefined,
           remoteConfig: this.npcModelConfig || undefined,
         });
       } catch (e) {
@@ -2049,6 +2056,19 @@ class PokerGame {
           },
           'info',
           'Solver strategy applied'
+        );
+        this.recordRuntimeRolloutDecision(gameState._decisionTrace, gameState._solverTrace || null);
+      } else if (gameState._decisionTrace?.status === 'pokerskill_hit') {
+        this._logEvent(
+          'pokerskill_hit',
+          {
+            playerId: current.id,
+            playerName: current.name,
+            isNPC: current.isNPC,
+            ...gameState._decisionTrace,
+          },
+          'info',
+          'PokerSkill harness applied'
         );
         this.recordRuntimeRolloutDecision(gameState._decisionTrace, gameState._solverTrace || null);
       } else if (gameState._decisionTrace?.status === 'model_hit') {
@@ -2080,7 +2100,7 @@ class PokerGame {
         this.recordRuntimeRolloutDecision(gameState._decisionTrace, gameState._solverTrace || null);
       }
       this._log(
-        `📋 ${current.name}${current.isNPC ? '' : ' [auto]'}${decision._solver ? ' [solver]' : decision._model ? ' [model]' : ''}: ${decision.action}${decision.amount ? ' ' + decision.amount : ''}`
+        `📋 ${current.name}${current.isNPC ? '' : ' [auto]'}${decision._solver ? ' [solver]' : decision._pokerskill ? ' [pokerskill]' : decision._model ? ' [model]' : ''}: ${decision.action}${decision.amount ? ' ' + decision.amount : ''}`
       );
 
       // Store last action for display (including fallback decisions)

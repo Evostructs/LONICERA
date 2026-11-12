@@ -25,6 +25,7 @@
     "npc:export-dataset": "node scripts/export-npc-policy-dataset.js",
     "npc:train": "python ai/train_policy.py",
     "npc:serve": "python ai/remote_inference_service.py",
+    "npc:serve-codex": "node ai/codex_poker_service.js",
     "npc:validate-runtime": "node scripts/validate-runtime-game-loop.js",
     "test": "jest --verbose",
     "test:browser": "playwright test"
@@ -68,5 +69,8 @@
       "/node_modules/",
       "/e2e/"
     ]
+  },
+  "overrides": {
+    "qs": "^6.17.1"
   }
 }

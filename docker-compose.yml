@@ -23,9 +23,12 @@ services:
       - NPC_MODEL_URL=${NPC_MODEL_URL:-http://127.0.0.1:8900}
       - NPC_MODEL_TIMEOUT_MS=${NPC_MODEL_TIMEOUT_MS:-800}
       - NPC_MODEL_MIN_CONFIDENCE=${NPC_MODEL_MIN_CONFIDENCE:-0.18}
+      - POKERSKILL_ENABLED=${POKERSKILL_ENABLED:-off}
+      - POKERSKILL_URL=${POKERSKILL_URL:-http://127.0.0.1:8910}
+      - POKERSKILL_TIMEOUT_MS=${POKERSKILL_TIMEOUT_MS:-12000}
       # Lower this on small NAS devices, or set PREFLOP_TABLE=off to skip startup precompute.
-      - PREFLOP_TABLE=on
-      - PREFLOP_SIMS=10000
+      - PREFLOP_TABLE=${PREFLOP_TABLE:-on}
+      - PREFLOP_SIMS=${PREFLOP_SIMS:-10000}
     restart: unless-stopped
     healthcheck:
       test: ['CMD', 'wget', '-qO-', 'http://127.0.0.1:2026/api/status']

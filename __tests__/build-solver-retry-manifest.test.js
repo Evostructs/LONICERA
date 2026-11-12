@@ -104,6 +104,11 @@ describe('build solver retry manifest script', () => {
               rawOutputPath: '/tmp/flop_6s5h4d.json',
               error: 'Solver did not produce /tmp/flop_6s5h4d.json',
             },
+            {
+              inputScript: '/path/to/scripts/BTN_vs_BB__SRP__50bb__Ts9h7d.txt',
+              rawOutputPath: '/tmp/flop_Ts9h7d.json',
+              error: 'Solver did not produce /tmp/flop_Ts9h7d.json',
+            },
           ],
         },
         null,
@@ -130,8 +135,13 @@ describe('build solver retry manifest script', () => {
     const manifest = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
     const jobsByFlop = Object.fromEntries(manifest.map((job) => [job.flop, job]));
 
-    expect(jobsByFlop.As7h2d.treeProfile).toBe('full');
-    expect(jobsByFlop['6s5h4d'].treeProfile).toBe('recovery');
-    expect(jobsByFlop['6s5h4d'].difficultyScore).toBeGreaterThan(jobsByFlop.As7h2d.difficultyScore);
+    // The explicit tail override takes precedence over the easy-board band.
+    expect(jobsByFlop.As7h2d.treeProfile).toBe('recovery');
+    expect(jobsByFlop.As7h2d.profileSource).toBe('exact_override');
+    expect(jobsByFlop.As7h2d.overrideRuleId).toBe('exact_As7h2d');
+    expect(jobsByFlop['6s5h4d']).toBeUndefined(); // terminal tails are excluded
+    expect(jobsByFlop.Ts9h7d.treeProfile).toBe('recovery');
+    expect(jobsByFlop.Ts9h7d.profileSource).toBe('adaptive_band');
+    expect(jobsByFlop.Ts9h7d.difficultyScore).toBeGreaterThan(jobsByFlop.As7h2d.difficultyScore);
   });
 });

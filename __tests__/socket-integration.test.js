@@ -58,6 +58,7 @@ describe('Socket.IO room flow', () => {
       socket.close();
     }
     await new Promise((resolve) => setTimeout(resolve, 25));
+    for (const game of serverModule.games.values()) game.stop();
   });
 
   afterAll(async () => {

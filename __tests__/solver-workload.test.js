@@ -18,8 +18,14 @@ describe('solver workload helpers', () => {
     const workDir = fs.mkdtempSync(path.join(os.tmpdir(), 'solver-workload-'));
     const outputRoot = path.join(workDir, 'phase1');
 
+    const solverDir = path.join(workDir, 'solver');
+    const rangeDir = path.join(solverDir, 'ranges', '6max_range', 'BTN', '2.5bb', 'BB', 'Call');
+    fs.mkdirSync(rangeDir, { recursive: true });
+    fs.writeFileSync(path.join(rangeDir, 'BTN_range.txt'), 'AA:1.0');
+    fs.writeFileSync(path.join(rangeDir, 'BB_range.txt'), 'KK:1.0');
+
     const result = writePhaseWorkload({
-      solverDir: '/path/to/TexasSolver',
+      solverDir,
       outputRoot,
       positionPair: 'BTN_vs_BB',
       line: 'SRP',

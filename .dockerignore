@@ -14,6 +14,7 @@ final-single-script
 .git
 .gitignore
 .env
+.env.before-*
 .env.example
 .env.nas.example
 CONTRIBUTING.md

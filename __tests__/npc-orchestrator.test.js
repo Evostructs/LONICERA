@@ -195,6 +195,98 @@ describe('npc orchestrator', () => {
     });
   });
 
+  test('uses PokerSkill harness for heads-up spots before remote model policy', async () => {
+    const gameState = {
+      pot: 30,
+      currentBet: 20,
+      playerBet: 10,
+      chips: 990,
+      minRaise: 40,
+      phase: 'preflop',
+      roundCount: 4,
+      activePlayers: 2,
+      totalPlayers: 2,
+      currentPlayerId: 'npc',
+      dealerIndex: 0,
+      bbIndex: 1,
+      handStartPlayerCount: 2,
+      handActionLog: [],
+      bigBlind: 20,
+      psychMods: {},
+      solverContext: { supported: false, reason: 'not_postflop' },
+    };
+    const players = [
+      {
+        id: 'npc',
+        name: 'HeroBot',
+        seatIndex: 0,
+        chips: 990,
+        bet: 10,
+        folded: false,
+        allIn: false,
+        isNPC: true,
+      },
+      {
+        id: 'human',
+        name: 'Human',
+        seatIndex: 1,
+        chips: 980,
+        bet: 20,
+        folded: false,
+        allIn: false,
+        isNPC: false,
+      },
+    ];
+    const remoteClient = jest.fn();
+    const pokerSkillClient = jest.fn().mockResolvedValue({
+      action: 'raise',
+      amountBb: 3,
+      latencyMs: 41,
+      modelVersion: 'pokerskill-test',
+    });
+
+    const decision = await decideNpcAction({
+      profile: {
+        name: 'HeroBot',
+        style: 'balanced',
+        tightness: 0.5,
+        bluffFreq: 0.2,
+        aggression: 0.5,
+        cbetFreq: 0.6,
+        checkRaiseFreq: 0.1,
+      },
+      holeCards: [card('A', 'spades', 14), card('K', 'diamonds', 13)],
+      communityCards: [],
+      gameState,
+      players,
+      pokerSkillConfig: {
+        enabled: true,
+        url: 'http://127.0.0.1:8910',
+        timeoutMs: 12000,
+      },
+      pokerSkillClient,
+      remoteConfig: {
+        enabled: true,
+        url: 'http://127.0.0.1:8900',
+        timeoutMs: 800,
+        minConfidence: 0.18,
+      },
+      remoteClient,
+    });
+
+    expect(decision).toMatchObject({
+      action: 'raise',
+      amount: 60,
+      _pokerskill: true,
+      _decisionSource: 'pokerskill_hit',
+    });
+    expect(gameState._decisionTrace).toMatchObject({
+      status: 'pokerskill_hit',
+      modelVersion: 'pokerskill-test',
+    });
+    expect(remoteClient).not.toHaveBeenCalled();
+  });
+
   test('falls back when remote model times out', async () => {
     const gameState = {
       pot: 100,

@@ -187,6 +187,7 @@ function getOrCreateGame(roomId, options = {}) {
       solverDataDir: options.solverDataDir || config.solverDataDir,
       solverRootCacheDir: options.solverRootCacheDir || config.solverRootCacheDir,
       npcModel: options.npcModel || config.npcModel,
+      pokerSkill: options.pokerSkill || config.pokerSkill,
     });
     if (preflopTable) game.preflopTable = preflopTable;
     game.onUpdate = (g) => {

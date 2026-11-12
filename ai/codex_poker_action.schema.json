@@ -1,0 +1,17 @@
+{
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "action": {
+      "type": "string",
+      "enum": ["fold", "check", "call", "raise", "allin"]
+    },
+    "amountBb": {
+      "anyOf": [
+        { "type": "number" },
+        { "type": "null" }
+      ]
+    }
+  },
+  "required": ["action", "amountBb"]
+}

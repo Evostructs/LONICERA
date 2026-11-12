@@ -675,13 +675,101 @@ function evaluatePreflop(holeCards) {
   return Math.min(1, Math.max(0, s));
 }
 
+function effectiveToCallAmount(currentBet = 0, playerBet = 0, chips = 0) {
+  const rawToCall = Math.max(0, Number(currentBet) - Number(playerBet));
+  return Math.min(rawToCall, Math.max(0, Number(chips)));
+}
+
+function getPreflopShape(holeCards) {
+  const [c1, c2] = holeCards;
+  const high = Math.max(c1.value, c2.value);
+  const low = Math.min(c1.value, c2.value);
+  return {
+    high,
+    low,
+    pair: c1.value === c2.value,
+    suited: c1.suit === c2.suit,
+  };
+}
+
+function isHyperAggressiveProfile(profile = {}) {
+  if (!profile || profile.sampleSize < 6) return false;
+  return (
+    profile.playerType === 'maniac' ||
+    profile.pfr >= 0.45 ||
+    profile.threeBet >= 0.22 ||
+    (profile.vpip >= 0.55 && profile.pfr >= 0.3)
+  );
+}
+
+function headsUpPreflopDefenseDecision(profile, strength, posName, gs, holeCards) {
+  const activePlayers = gs.activePlayers || 0;
+  const rawToCall = Math.max(0, gs.currentBet - gs.playerBet);
+  const toCall = effectiveToCallAmount(gs.currentBet, gs.playerBet, gs.chips);
+  if (activePlayers > 2 || rawToCall <= 0 || toCall <= 0) return null;
+
+  const bb = gs.bigBlind || 20;
+  const potOdds = toCall / Math.max(1, gs.pot + toCall);
+  const tier = getHandTier(holeCards);
+  const shape = getPreflopShape(holeCards);
+  const oppProfiles = Object.values(gs.opponentProfiles || {});
+  const isVsHyperAggro = oppProfiles.some(isHyperAggressiveProfile);
+  const allInPressure = toCall >= gs.chips * 0.85 || rawToCall >= bb * 18;
+  const largeRaise = rawToCall >= bb * 8;
+  const mediumRaise = rawToCall >= bb * 4;
+  const shortStack = gs.chips <= bb * 18;
+
+  const premium = tier <= 2 || strength >= 0.74;
+  const strong = tier <= 3 || strength >= 0.66;
+  const solid = tier <= 4 || strength >= 0.6 || (shape.pair && shape.high >= 7);
+  const playable =
+    tier <= 5 ||
+    strength >= 0.54 ||
+    (shape.pair && shape.high >= 4) ||
+    (shape.high === 14 && (shape.suited || shape.low >= 8)) ||
+    (shape.high >= 13 && shape.low >= 10);
+
+  if (premium) return { action: 'call', _antiExploit: true };
+
+  if (allInPressure) {
+    if (strong) return { action: 'call', _antiExploit: true };
+    if (shortStack && (solid || (isVsHyperAggro && playable))) {
+      return { action: 'call', _antiExploit: true };
+    }
+    if (isVsHyperAggro && solid && potOdds <= 0.42) {
+      return { action: 'call', _antiExploit: true };
+    }
+    return null;
+  }
+
+  if (largeRaise) {
+    if (solid || (isVsHyperAggro && playable && potOdds <= 0.38)) {
+      return { action: 'call', _antiExploit: true };
+    }
+    return null;
+  }
+
+  if (mediumRaise) {
+    if (solid || (playable && (potOdds <= 0.32 || isVsHyperAggro))) {
+      return { action: 'call', _antiExploit: true };
+    }
+    return null;
+  }
+
+  if (playable || potOdds <= 0.24 || (posName === 'blind' && tier <= 6)) {
+    return { action: 'call', _antiExploit: true };
+  }
+
+  return null;
+}
+
 // ============================================================
 //  SMART BLUFFING
 // ============================================================
 
 function evaluateBluff(profile, holeCards, communityCards, gameState, drawInfo, opponentProfiles) {
   const { pot, currentBet, playerBet, chips, phase, activePlayers } = gameState;
-  const toCall = currentBet - playerBet;
+  const toCall = effectiveToCallAmount(currentBet, playerBet, chips);
   let bluffScore = 0;
   let bluffType = 'none';
 
@@ -896,7 +984,7 @@ function npcDecision(profile, holeCards, communityCards, gameState) {
     opponentProfiles: oppProfs,
     preflopTable,
   } = gameState;
-  const toCall = currentBet - playerBet;
+  const toCall = effectiveToCallAmount(currentBet, playerBet, chips);
 
   const positionFactor = getPositionFactor(seatIndex || 0, dealerIndex || 0, totalPlayers || 4);
   const posName = getPositionName(seatIndex || 0, dealerIndex || 0, totalPlayers || 4);
@@ -922,9 +1010,20 @@ function npcDecision(profile, holeCards, communityCards, gameState) {
 
     // Chart-based range check: should we even be in this hand?
     const bb = gameState.bigBlind || 20;
-    const scenario = toCall > bb ? (toCall > bb * 6 ? 'facing_3bet' : 'facing_raise') : 'open';
+    const rawToCall = Math.max(0, currentBet - playerBet);
+    const scenario =
+      rawToCall > bb ? (rawToCall > bb * 6 ? 'facing_3bet' : 'facing_raise') : 'open';
     const tightnessAdj = (sessionProfile.tightness - 0.5) * 4; // map 0-1 to -2..+2
     const chartDecision = chartBasedPreflopDecision(holeCards, posName, scenario, tightnessAdj);
+
+    const exploitDefense = headsUpPreflopDefenseDecision(
+      sessionProfile,
+      strength,
+      posName,
+      gameState,
+      holeCards
+    );
+    if (exploitDefense) return exploitDefense;
 
     // If chart says fold AND equity-based strength is below threshold, fold
     // This prevents entering pots with hands outside our positional range
@@ -1223,7 +1322,7 @@ function npcDecision(profile, holeCards, communityCards, gameState) {
 
 function preflopDecision(profile, strength, posFactor, posName, gs) {
   const { currentBet, playerBet, chips, minRaise, activePlayers } = gs;
-  const toCall = currentBet - playerBet;
+  const toCall = effectiveToCallAmount(currentBet, playerBet, chips);
   const bb = gs.bigBlind || 20;
   const openThreshold = (profile.tightness * 0.5) / posFactor;
 
@@ -1450,4 +1549,6 @@ module.exports = {
   buildSessionProfile,
   localFallbackDecision,
   trySolverDecision,
+  effectiveToCallAmount,
+  headsUpPreflopDefenseDecision,
 };

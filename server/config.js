@@ -66,6 +66,11 @@ function loadConfig() {
         Math.min(1, Number.parseFloat(process.env.NPC_MODEL_MIN_CONFIDENCE || '0.18') || 0.18)
       ),
     },
+    pokerSkill: {
+      enabled: boolFromEnv('POKERSKILL_ENABLED', false),
+      url: stringFromEnv('POKERSKILL_URL', 'http://127.0.0.1:8910'),
+      timeoutMs: intFromEnv('POKERSKILL_TIMEOUT_MS', 12000, 100, 60000),
+    },
   };
 }
 

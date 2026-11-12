@@ -2,6 +2,12 @@ const { buildSessionProfile, localFallbackDecision, trySolverDecision } = requir
 const { applyPersonaDeviation, isSolverEligibleProfile } = require('./solver-persona');
 const { buildModelRequest } = require('./npc-model-features');
 const { requestModelDecision, validateModelResponse, DEFAULT_TIMEOUT_MS } = require('./npc-remote-client');
+const {
+  buildPokerSkillRequest,
+  defaultPokerSkillConfig,
+  requestPokerSkillDecision,
+  validatePokerSkillResponse,
+} = require('./pokerskill-client');
 const { translatePolicyDecision } = require('./solver-translate');
 
 function nowMs() {
@@ -47,6 +53,8 @@ async function decideNpcAction({
   communityCards,
   gameState,
   players = [],
+  pokerSkillConfig = defaultPokerSkillConfig(),
+  pokerSkillClient = requestPokerSkillDecision,
   remoteConfig = defaultModelConfig(),
   remoteClient = requestModelDecision,
 }) {
@@ -72,6 +80,69 @@ async function decideNpcAction({
     return annotateDecision(solverDecision, trace);
   }
 
+  const pokerSkillPayload = buildPokerSkillRequest({
+    profile,
+    holeCards,
+    communityCards,
+    gameState: {
+      ...gameState,
+      communityCards,
+    },
+    players,
+  });
+
+  if (pokerSkillConfig?.enabled) {
+    if (pokerSkillPayload.coverage?.supported) {
+      const pokerSkillStartedAt = nowMs();
+      try {
+        const response = await pokerSkillClient({
+          url: pokerSkillConfig.url,
+          payload: pokerSkillPayload,
+          timeoutMs: pokerSkillConfig.timeoutMs,
+        });
+        const validated = validatePokerSkillResponse(response, pokerSkillPayload);
+        if (validated.ok) {
+          const latencyMs =
+            Number.isFinite(response.latencyMs)
+              ? response.latencyMs
+              : Math.round((nowMs() - pokerSkillStartedAt) * 100) / 100;
+          const trace = setDecisionTrace(gameState, {
+            status: 'pokerskill_hit',
+            reason: 'pokerskill_harness_applied',
+            selectedAction: response.action || response.selectedAction || validated.decision.action,
+            latencyMs,
+            modelVersion: response.modelVersion || null,
+            coverageStatus: pokerSkillPayload.coverage.reason,
+          });
+          gameState._pokerSkillTrace = trace;
+          return annotateDecision(validated.decision, trace);
+        }
+        gameState._pokerSkillTrace = {
+          status: 'pokerskill_miss',
+          reason: validated.reason,
+          latencyMs: Math.round((nowMs() - pokerSkillStartedAt) * 100) / 100,
+          coverageStatus: pokerSkillPayload.coverage.reason,
+        };
+      } catch (error) {
+        gameState._pokerSkillTrace = {
+          status: 'pokerskill_miss',
+          reason:
+            error?.code === 'ETIMEDOUT' || error?.message === 'ETIMEDOUT'
+              ? 'pokerskill_timeout'
+              : 'pokerskill_request_failed',
+          latencyMs: Math.round((nowMs() - pokerSkillStartedAt) * 100) / 100,
+          coverageStatus: pokerSkillPayload.coverage.reason,
+          error: error?.message || String(error),
+        };
+      }
+    } else {
+      gameState._pokerSkillTrace = {
+        status: 'pokerskill_skipped',
+        reason: pokerSkillPayload.coverage?.reason || 'unsupported_context',
+      };
+    }
+  }
+
   const requestPayload = buildModelRequest({
     profile,
     holeCards,
@@ -89,12 +160,14 @@ async function decideNpcAction({
   if (!remoteConfig.enabled) {
     return fallbackDecision(profile, holeCards, communityCards, gameState, 'model_disabled', {
       coverageStatus: requestPayload.coverage.reason,
+      pokerSkillReason: gameState._pokerSkillTrace?.reason || null,
     });
   }
 
   if (!requestPayload.coverage.supported) {
     return fallbackDecision(profile, holeCards, communityCards, gameState, 'model_spot_not_covered', {
       coverageStatus: requestPayload.coverage.reason,
+      pokerSkillReason: gameState._pokerSkillTrace?.reason || null,
     });
   }
 
@@ -110,6 +183,7 @@ async function decideNpcAction({
       return fallbackDecision(profile, holeCards, communityCards, gameState, validated.reason, {
         latencyMs: Math.round((nowMs() - modelStartedAt) * 100) / 100,
         coverageStatus: requestPayload.coverage.reason,
+        pokerSkillReason: gameState._pokerSkillTrace?.reason || null,
       });
     }
     if (validated.confidence < remoteConfig.minConfidence) {
@@ -118,6 +192,7 @@ async function decideNpcAction({
         confidence: validated.confidence,
         modelVersion: validated.modelVersion,
         coverageStatus: validated.coverageStatus || requestPayload.coverage.reason,
+        pokerSkillReason: gameState._pokerSkillTrace?.reason || null,
       });
     }
 
@@ -136,6 +211,7 @@ async function decideNpcAction({
         latencyMs: validated.latencyMs,
         modelVersion: validated.modelVersion,
         coverageStatus: validated.coverageStatus || requestPayload.coverage.reason,
+        pokerSkillReason: gameState._pokerSkillTrace?.reason || null,
       });
     }
 
@@ -153,6 +229,7 @@ async function decideNpcAction({
         modelVersion: validated.modelVersion,
         confidence: validated.confidence,
         coverageStatus: validated.coverageStatus || requestPayload.coverage.reason,
+        pokerSkillReason: gameState._pokerSkillTrace?.reason || null,
       });
     }
 
@@ -179,6 +256,7 @@ async function decideNpcAction({
       modelVersion: null,
       coverageStatus: requestPayload.coverage.reason,
       error: error?.message || String(error),
+      pokerSkillReason: gameState._pokerSkillTrace?.reason || null,
     });
   }
 }
