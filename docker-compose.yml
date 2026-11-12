@@ -1,6 +1,6 @@
 services:
   lonicera:
-    # To use a published image later, replace this with: image: ghcr.io/billwang0101/lonicera:latest
+    # To use a published image later, replace this with: image: ghcr.io/evostructs/lonicera:latest
     build:
       context: .
       args:

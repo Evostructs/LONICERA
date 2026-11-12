@@ -5,7 +5,7 @@ Thanks for your interest! Here's how to get started.
 ## Development Setup
 
 ```bash
-git clone https://github.com/BillWang0101/LONICERA.git
+git clone https://github.com/Evostructs/LONICERA.git
 cd lonicera
 npm install
 npm start

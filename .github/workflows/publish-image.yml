@@ -12,7 +12,7 @@ permissions:
 
 env:
   REGISTRY: ghcr.io
-  IMAGE_NAME: billwang0101/lonicera
+  IMAGE_NAME: evostructs/lonicera
 
 jobs:
   docker:

@@ -73,8 +73,8 @@ Characters from _Journey to the West_, _Romance of the Three Kingdoms_, _Water M
 ### Published Container Image
 
 ```bash
-docker pull ghcr.io/billwang0101/lonicera:latest
-docker run -d -p 2026:2026 --restart unless-stopped --name lonicera ghcr.io/billwang0101/lonicera:latest
+docker pull ghcr.io/evostructs/lonicera:latest
+docker run -d -p 2026:2026 --restart unless-stopped --name lonicera ghcr.io/evostructs/lonicera:latest
 ```
 
 Open `http://localhost:2026` in your browser. Done.
@@ -84,7 +84,7 @@ GitHub Container Registry image names are lowercase even if the repository name 
 ### Docker Compose From Source
 
 ```bash
-git clone https://github.com/BillWang0101/LONICERA.git
+git clone https://github.com/Evostructs/LONICERA.git
 cd lonicera
 docker compose up -d
 ```
@@ -120,7 +120,7 @@ This intentionally discards uncommitted changes in the NAS checkout and makes th
 ### Build from Source
 
 ```bash
-git clone https://github.com/BillWang0101/LONICERA.git
+git clone https://github.com/Evostructs/LONICERA.git
 cd lonicera
 docker build -t lonicera .
 docker run -d -p 2026:2026 --restart unless-stopped --name lonicera lonicera
