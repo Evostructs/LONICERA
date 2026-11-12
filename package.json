@@ -43,12 +43,12 @@
   "license": "SEE LICENSE IN LICENSE",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/BillWang0101/LONICERA.git"
+    "url": "git+https://github.com/Evostructs/LONICERA.git"
   },
   "bugs": {
-    "url": "https://github.com/BillWang0101/LONICERA/issues"
+    "url": "https://github.com/Evostructs/LONICERA/issues"
   },
-  "homepage": "https://github.com/BillWang0101/LONICERA#readme",
+  "homepage": "https://github.com/Evostructs/LONICERA#readme",
   "engines": {
     "node": ">=18.0.0"
   },

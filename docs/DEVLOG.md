@@ -2,7 +2,7 @@
 
 > **Timeline:** March — April 2026  
 > **Stack:** Node.js + Express + Socket.IO + Vanilla JS  
-> **Built by:** BillWang0101 × Claude
+> **Built by:** Evostructs × Claude
 
 ---
 
@@ -65,7 +65,7 @@ Each character has calibrated parameters for tightness, aggression, bluff freque
 ## Deployment
 
 ```bash
-docker run -d -p 2026:2026 --restart unless-stopped --name lonicera ghcr.io/billwang0101/lonicera:latest
+docker run -d -p 2026:2026 --restart unless-stopped --name lonicera ghcr.io/evostructs/lonicera:latest
 ```
 
 Open `http://localhost:2026`. That's it.
