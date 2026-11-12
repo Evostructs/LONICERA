@@ -4,6 +4,8 @@ A self-hosted multiplayer Texas Hold'em poker game with 22 AI opponents inspired
 
 Built for home servers and NAS devices. No accounts, no ads, no tracking — just poker.
 
+**Developed by Evostructs with assistance from OpenAI Codex.**
+
 ![Table screenshot](./docs/screenshots/table.png)
 ![Lobby screenshot](./docs/screenshots/lobby.png)
 
